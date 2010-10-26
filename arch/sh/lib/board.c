@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007,2008
+ * Copyright (C) 2007, 2008, 2010
  * Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
  *
  * This program is free software; you can redistribute it and/or
@@ -46,7 +46,11 @@ static int sh_flash_init(void)
 	DECLARE_GLOBAL_DATA_PTR;
 
 	gd->bd->bi_flashsize = flash_init();
-	printf("FLASH: %ldMB\n", gd->bd->bi_flashsize / (1024*1024));
+
+	if (gd->bd->bi_flashsize >= (1024 * 1024))
+		printf("FLASH: %ldMB\n", gd->bd->bi_flashsize / (1024*1024));
+	else
+		printf("FLASH: %ldKB\n", gd->bd->bi_flashsize / 1024);
 
 	return 0;
 }
