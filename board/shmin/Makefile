@@ -23,7 +23,7 @@ include $(TOPDIR)/config.mk
 
 LIB	= lib$(BOARD).o
 
-OBJS	:= shmin.o
+OBJS	:= shmin.o mmc.o
 SOBJS	:= lowlevel_init.o
 
 LIB	:= $(addprefix $(obj),$(LIB))
