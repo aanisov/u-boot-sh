@@ -77,6 +77,15 @@ are GPL, so this is, of course, GPL.
 #define __DRIVERS_NE2000_H__
 
 /* Enable NE2000 basic init function */
+#ifdef CONFIG_T_SH7706LSR
+#define DP_DATA		(0x10 << 1)
+#define START_PG	0x40	/* First page of TX buffer */
+#define START_PG2	0x48
+#define STOP_PG		0x80	/* Last page +1 of RX ring */
+#define TX_PAGES	12
+#define RX_START	(START_PG+TX_PAGES)
+#define RX_END		STOP_PG
+#else
 #define NE2000_BASIC_INIT
 
 #define DP_DATA		0x10
@@ -86,6 +95,7 @@ are GPL, so this is, of course, GPL.
 
 #define RX_START	0x50
 #define RX_END		0x80
+#endif /* CONFIG_T_SH7706LSR */
 
 #define DP_IN(_b_, _o_, _d_)	(_d_) = *( (vu_char *) ((_b_)+(_o_)))
 #define DP_OUT(_b_, _o_, _d_)	*( (vu_char *) ((_b_)+(_o_))) = (_d_)

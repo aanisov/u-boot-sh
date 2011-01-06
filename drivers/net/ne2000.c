@@ -224,9 +224,11 @@ int get_prom(u8* mac_addr, u8* base_addr)
 
 	PRINTK ("trying to get MAC via prom reading\n");
 
+#ifndef CONFIG_T_SH7706LSR
 	pcnet_reset_8390 (base_addr);
 
 	mdelay (10);
+#endif /* CONFIG_T_SH7706LSR */
 
 	for (i = 0; i < sizeof (program_seq) / sizeof (program_seq[0]); i++)
 		n2k_outb (program_seq[i].value, program_seq[i].offset);
