@@ -42,8 +42,23 @@
 #define CONFIG_CMD_ENV
 #define CONFIG_CMD_SAVEENV
 
+#ifdef CONFIG_T_SH7706LSR
+#define CONFIG_CMD_MMC
+#define CONFIG_MMC
+#define CONFIG_CMD_EXT2
+#define CONFIG_CMD_FAT
+#define CONFIG_DOS_PARTITION
+#define CONFIG_CMD_BOOTD
+#define CONFIG_ENV_OVERWRITE
+#endif /* CONFIG_T_SH7706LSR */
+
+/* Default environment variables */
 #define CONFIG_BAUDRATE		115200
-#define CONFIG_BOOTARGS		"console=ttySC0,115200"
+#define CONFIG_BOOTARGS		"console=ttySC1,115200 root=/dev/shmmc2"
+#define CONFIG_BOOTFILE		/boot/uImage
+#define CONFIG_LOADADDR		0x8D000000
+#define CONFIG_VERSION_VARIABLE
+#define CONFIG_BOOTCOMMAND	"mmc init;ext2load mmc1 :2;bootm;"
 
 /* 
  * This board has original boot loader. If you write u-boot to 0x0,
