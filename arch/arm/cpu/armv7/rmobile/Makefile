@@ -25,17 +25,22 @@ include $(TOPDIR)/config.mk
 
 LIB	= $(obj)lib$(SOC).o
 
-COBJS += cpu_info.o
-COBJS += timer.o
+SOBJS = lowlevel_init.o
+COBJS += cpu_info.o board.o timer.o
+COBJS-$(CONFIG_SH73A0) += cpu_info-sh73a0.o
 
-SRCS	:= $(START:.o=.S) $(SOBJS:.o=.S) $(COBJS:.o=.c)
-OBJS	:= $(addprefix $(obj),$(COBJS) $(COBJS-y))
+SRCS    := $(SOBJS:.o=.S) $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS) $(COBJS-y))
+SOBJS	:= $(addprefix $(obj),$(SOBJS))
 START	:= $(addprefix $(obj),$(START))
 
 all:	$(obj).depend $(LIB)
 
 $(LIB):	$(OBJS)
 	$(call cmd_link_o_target, $(OBJS))
+
+clean:
+	rm -f $(SOBJS) $(OBJS)
 
 #########################################################################
 
