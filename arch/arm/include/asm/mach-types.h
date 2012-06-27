@@ -1105,6 +1105,7 @@ extern unsigned int __machine_arch_type;
 #define MACH_TYPE_UBISYS_P9D_EVP       3493
 #define MACH_TYPE_ATDGP318             3494
 #define MACH_TYPE_OMAP5_SEVM           3777
+#define MACH_TYPE_ARMADILLO_800EVA     3863
 
 #define MACH_TYPE_KZM9G                4140
 
