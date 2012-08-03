@@ -26,7 +26,9 @@ include $(TOPDIR)/config.mk
 LIB	= $(obj)lib$(SOC).o
 
 SOBJS = lowlevel_init.o
-COBJS += cpu_info.o board.o timer.o
+COBJS += cpu_info.o board.o
+COBJS-$(CONFIG_GLOBAL_TIMER) += timer.o
+COBJS-$(CONFIG_TMU_TIMER) += timer_tmu.o
 COBJS-$(CONFIG_SH73A0) += pfc-sh73a0.o cpu_info-sh73a0.o
 
 SRCS    := $(SOBJS:.o=.S) $(COBJS:.o=.c)
