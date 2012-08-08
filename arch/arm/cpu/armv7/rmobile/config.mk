@@ -1,9 +1,6 @@
 #
-# (C) Copyright 2009
-# ISEE 2007 SL, <www.iseebcn.com>
-#
-# IGEP0030 uses OMAP3 (ARM-CortexA8) cpu
-# see http://www.ti.com/ for more information on Texas Instruments
+# (C) Copyright 2002
+# Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
 #
 # See file CREDITS for list of people who contributed to this
 # project.
@@ -23,11 +20,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307 USA
 #
-# Physical Address:
-# 8000'0000 (bank0)
-# A000/0000 (bank1)
-# Linux-Kernel is expected to be at 8000'8000, entry 8000'8000
-# (mem base + reserved)
+PLATFORM_RELFLAGS += -fno-common -ffixed-r8 -msoft-float
 
-# For use with external or internal boots.
-CONFIG_SYS_TEXT_BASE = 0x80008000
+# Make ARMv5 to allow more compilers to work, even though its v7a.
+PLATFORM_CPPFLAGS += -march=armv5

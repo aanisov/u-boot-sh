@@ -25,6 +25,7 @@
 #define CONFIG_OMAP				/* in a TI OMAP core */
 #define CONFIG_OMAP34XX				/* which is a 34XX */
 #define CONFIG_OMAP3_OVERO			/* working with overo */
+#define CONFIG_OMAP_GPIO
 
 #define CONFIG_SDRC				/* The chip has SDRC controller */
 
@@ -325,6 +326,7 @@
 #define CONFIG_SPL_FAT_SUPPORT
 #define CONFIG_SPL_SERIAL_SUPPORT
 #define CONFIG_SPL_NAND_SUPPORT
+#define CONFIG_SPL_GPIO_SUPPORT
 #define CONFIG_SPL_POWER_SUPPORT
 #define CONFIG_SPL_LDSCRIPT		"$(CPUDIR)/omap-common/u-boot-spl.lds"
 

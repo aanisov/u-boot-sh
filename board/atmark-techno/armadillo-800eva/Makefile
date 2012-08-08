@@ -1,17 +1,10 @@
 #
-# (C) Copyright 2009
-# ISEE 2007 SL, <www.iseebcn.com>
-#
-# IGEP0020 uses OMAP3 (ARM-CortexA8) cpu
-# see http://www.ti.com/ for more information on Texas Instruments
-#
-# See file CREDITS for list of people who contributed to this
-# project.
+# Copyright (C) 2012  Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
+# the License.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,12 +15,32 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307 USA
-#
-# Physical Address:
-# 8000'0000 (bank0)
-# A000/0000 (bank1)
-# Linux-Kernel is expected to be at 8000'8000, entry 8000'8000
-# (mem base + reserved)
 
-# For use with external or internal boots.
-CONFIG_SYS_TEXT_BASE = 0x80008000
+include $(TOPDIR)/config.mk
+
+LIB	= $(obj)lib$(BOARD).o
+
+COBJS-y	+= armadillo-800eva.o
+COBJS   := $(COBJS-y)
+
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+clean:
+	rm -f $(OBJS)
+
+distclean:	clean
+	rm -f $(LIB) core *.bak $(obj).depend
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################
+

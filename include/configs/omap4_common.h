@@ -35,6 +35,7 @@
 #define CONFIG_OMAP		1	/* in a TI OMAP core */
 #define CONFIG_OMAP44XX		1	/* which is a 44XX */
 #define CONFIG_OMAP4430		1	/* which is in a 4430 */
+#define CONFIG_OMAP_GPIO
 
 /* Get CPU defs */
 #include <asm/arch/cpu.h>
@@ -278,6 +279,7 @@
 #define CONFIG_SPL_FAT_SUPPORT
 #define CONFIG_SPL_LIBGENERIC_SUPPORT
 #define CONFIG_SPL_SERIAL_SUPPORT
+#define CONFIG_SPL_GPIO_SUPPORT
 #define CONFIG_SPL_LDSCRIPT "$(CPUDIR)/omap-common/u-boot-spl.lds"
 
 #define CONFIG_SYS_THUMB_BUILD
