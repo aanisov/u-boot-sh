@@ -38,6 +38,7 @@ endif
 
 ifneq ($(CONFIG_ARMV7_NONSEC),)
 SOBJS	+= nonsec_virt.o
+COBJS	+= virt-v7.o
 endif
 
 SRCS	:= $(START:.o=.S) $(COBJS:.o=.c)
