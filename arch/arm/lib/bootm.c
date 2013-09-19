@@ -36,6 +36,10 @@
 #include <asm/bootm.h>
 #include <linux/compiler.h>
 
+#ifdef CONFIG_ARMV7_NONSEC
+#include <asm/armv7.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #if defined(CONFIG_SETUP_MEMORY_TAGS) || \
@@ -278,6 +282,14 @@ static int create_fdt(bootm_headers_t *images)
 
 __weak void setup_board_tags(struct tag **in_params) {}
 
+static void do_nonsec_virt_switch(void)
+{
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
+	if (armv7_switch_nonsec() == 0)
+		debug("entered non-secure state\n");
+#endif
+}
+
 /* Subcommand: PREP */
 static void boot_prep_linux(bootm_headers_t *images)
 {
@@ -326,6 +338,7 @@ static void boot_prep_linux(bootm_headers_t *images)
 		hang();
 #endif /* all tags */
 	}
+	do_nonsec_virt_switch();
 }
 
 /* Subcommand: GO */
