@@ -97,6 +97,7 @@ int armv7_switch_nonsec(void);
 
 /* defined in assembly file */
 unsigned int _nonsec_init(void);
+void _smp_pen(void);
 #endif /* CONFIG_ARMV7_NONSEC */
 
 #endif /* ! __ASSEMBLY__ */
