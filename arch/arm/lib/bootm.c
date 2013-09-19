@@ -36,7 +36,7 @@
 #include <asm/bootm.h>
 #include <linux/compiler.h>
 
-#ifdef CONFIG_ARMV7_NONSEC
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
 #include <asm/armv7.h>
 #endif
 
@@ -286,7 +286,12 @@ static void do_nonsec_virt_switch(void)
 {
 #if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
 	if (armv7_switch_nonsec() == 0)
+#ifdef CONFIG_ARMV7_VIRT
+		if (armv7_switch_hyp() == 0)
+			debug("entered HYP mode\n");
+#else
 		debug("entered non-secure state\n");
+#endif
 #endif
 }
 
