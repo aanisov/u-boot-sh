@@ -58,6 +58,16 @@ static const struct sh_i2c *i2c_dev[CONFIG_SYS_I2C_SH_NUM_CONTROLLERS] = {
 #endif
 };
 
+/* Default how sample ratio in SCL */
+#ifndef CONFIG_SH_I2C_DATA_LOW
+#define CONFIG_SH_I2C_DATA_LOW		5
+#endif
+
+/* Default high sample ratio in SCL */
+#ifndef CONFIG_SH_I2C_DATA_HIGH
+#define CONFIG_SH_I2C_DATA_HIGH		4
+#endif
+
 static u16 iccl, icch;
 
 #define IRQ_WAIT 1000
