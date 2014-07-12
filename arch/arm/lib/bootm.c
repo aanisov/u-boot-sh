@@ -343,7 +343,6 @@ static void boot_prep_linux(bootm_headers_t *images)
 		hang();
 #endif /* all tags */
 	}
-	do_nonsec_virt_switch();
 }
 
 /* Subcommand: GO */
@@ -374,6 +373,7 @@ static void boot_jump_linux(bootm_headers_t *images)
 #endif
 		r2 = gd->bd->bi_boot_params;
 
+	do_nonsec_virt_switch();
 	kernel_entry(0, machid, r2);
 }
 
