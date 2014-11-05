@@ -9,4 +9,7 @@ config SYS_VENDOR
 config SYS_CONFIG_NAME
 	default "lager"
 
+config ARMV7_VIRT
+	bool "Virtualization support"
+
 endif

@@ -289,8 +289,10 @@ int fdt_chosen(void *fdt)
 
 	str = getenv("bootargs");
 	if (str) {
+#ifndef CONFIG_ARMV7_VIRT
 		err = fdt_setprop(fdt, nodeoffset, "bootargs", str,
 				  strlen(str) + 1);
+#endif
 		if (err < 0) {
 			printf("WARNING: could not set bootargs %s.\n",
 			       fdt_strerror(err));

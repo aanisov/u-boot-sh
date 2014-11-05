@@ -24,6 +24,11 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifdef CONFIG_ARMV7_VIRT
+extern void shmobile_boot_vector(void);
+extern unsigned long shmobile_boot_size;
+#endif
+
 #define CLK2MHZ(clk)	(clk / 1000 / 1000)
 void s_init(void)
 {
@@ -191,3 +196,154 @@ void reset_cpu(ulong addr)
 	val |= 0x02;
 	i2c_write(CONFIG_SYS_I2C_POWERIC_ADDR, 0x13, 1, &val, 1);
 }
+
+#ifdef CONFIG_ARMV7_VIRT
+#define r8a7790_clst_id(cpu) ((cpu & 4) > 0 ? 1 : 0)
+#define r8a7790_cpu_id(cpu) ((cpu) & 0x3)
+#define LAGER_APMU_BASE                        0xE6150000
+#define LAGER_APMU_CA15WUPCR_OFFSET            0x2010
+#define LAGER_APMU_CA15CPUCMCR_OFFSET          0x2184
+#define LAGER_APMU_CA7WUPCR_OFFSET             0x1010
+#define LAGER_APMU_CA7CPUCMCR_OFFSET           0x1184
+#define LAGER_RST_BASE                         0xE6160000
+#define LAGER_RST_CA15BAR_OFFSET               0x20
+#define LAGER_RST_CA7BAR_OFFSET                0x30
+#define LAGER_RST_CA15BAR_BAREN                (1 << 4)
+#define LAGER_RST_CA7BAR_BAREN                 (1 << 4)
+#define LAGER_RST_CA15RESCNT_OFFSET            0x40
+#define LAGER_RST_CA7RESCNT_OFFSET             0x44
+#define		BIT(x)	(1 << (x))
+#define LAGER_XEN_INIT_SECONDARY_START         0xE63C0FFC
+#define LAGER_RST_BASE                         0xE6160000
+#define LAGER_RST_CA15BAR                      0xE6160020
+#define LAGER_RST_CA7BAR                       0xE6160030
+#define LAGER_LAGER_RAM                        0xE63C0000
+#define LAGER_MAX_CPUS                         4
+
+
+enum { R8A7790_CLST_CA15, R8A7790_CLST_CA7, R8A7790_CLST_NR };
+static struct {
+	unsigned int wupcr;
+	unsigned int bar;
+	unsigned int rescnt;
+	unsigned int rescnt_magic;
+} r8a7790_clst[R8A7790_CLST_NR] = {
+	[R8A7790_CLST_CA15] = {
+		.wupcr = LAGER_APMU_CA15WUPCR_OFFSET,
+		.bar = LAGER_RST_CA15BAR_OFFSET,
+		.rescnt = LAGER_RST_CA15RESCNT_OFFSET,
+		.rescnt_magic = 0xa5a50000,
+	},
+	[R8A7790_CLST_CA7] = {
+		.wupcr = LAGER_APMU_CA7WUPCR_OFFSET,
+		.bar = LAGER_RST_CA7BAR_OFFSET,
+		.rescnt = LAGER_RST_CA7RESCNT_OFFSET,
+		.rescnt_magic = 0x5a5a0000,
+	},
+};
+
+static void assert_reset(unsigned int cpu)
+{
+	void *rescnt;
+	u32 mask, magic;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	/* disable per-core clocks */
+	mask = BIT(3 - r8a7790_cpu_id(cpu));
+	magic = r8a7790_clst[clst_id].rescnt_magic;
+	rescnt = (void *) (LAGER_RST_BASE + r8a7790_clst[clst_id].rescnt);
+	writel((readl(rescnt) | mask) | magic, rescnt);
+}
+
+static void deassert_reset(unsigned int cpu)
+{
+	void *rescnt;
+	u32 mask, magic;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	/* enable per-core clocks */
+	mask = BIT(3 - r8a7790_cpu_id(cpu));
+	magic = r8a7790_clst[clst_id].rescnt_magic;
+	rescnt = (void *) (LAGER_RST_BASE + r8a7790_clst[clst_id].rescnt);
+	writel((readl(rescnt) & ~mask) | magic, rescnt);
+}
+
+static void power_on(unsigned int cpu)
+{
+	void *cawupcr;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	cawupcr = (void *) (LAGER_APMU_BASE + r8a7790_clst[clst_id].wupcr);
+	writel(BIT(r8a7790_cpu_id(cpu)), cawupcr);
+
+	/* wait for APMU to finish */
+	while (readl(cawupcr) != 0);
+}
+
+void smp_kick_all_cpus(void)
+{
+	int i;
+	for (i = 1; i < LAGER_MAX_CPUS; i++)
+	{
+		assert_reset(i);
+		power_on(i);
+		deassert_reset(i);
+	}
+}
+
+void smp_set_core_boot_addr(unsigned long addr, int corenr)
+{
+
+	void __iomem *p;
+	unsigned long *f;
+	unsigned long bar;
+
+	p = (void __iomem*) LAGER_LAGER_RAM;
+	memcpy_toio(p, shmobile_boot_vector, shmobile_boot_size);
+	f = (void __iomem *)((long unsigned)p + shmobile_boot_size - 4);
+	*((unsigned long *) f) = addr;
+
+	bar = (LAGER_LAGER_RAM >> 8) & 0xfffffc00;
+
+	writel(bar, LAGER_RST_CA15BAR);
+	writel(bar | 0x10, LAGER_RST_CA15BAR);
+	writel(bar, LAGER_RST_CA7BAR);
+	writel(bar | 0x10, LAGER_RST_CA7BAR);
+
+	f = (unsigned long *)(LAGER_XEN_INIT_SECONDARY_START);
+	*f = 0;
+
+	/* make sure this write is really executed */
+	__asm__ volatile ("dsb\n");
+}
+
+
+asm(".arm \n"
+	".align 2 \n"
+	".global smp_waitloop \n"
+	"smp_waitloop: \n"
+	"1: 	wfe \n"
+	"ldr 	r0, =0xE63C0FFC \n"
+	"ldr	r0, [r0] \n"
+	"teq	r0, #0x0 \n"
+	"beq 	1b \n"
+
+	"b		_do_nonsec_entry \n"
+	".type smp_waitloop, %function \n"
+	".size smp_waitloop, .-smp_waitloop \n");
+
+asm(
+	".arm \n"
+	".globl shmobile_boot_vector \n"
+	".align 2 \n"
+	"shmobile_boot_vector: \n"
+	"ldr    pc, 1f \n"
+	".type shmobile_boot_vector, %function \n"
+	".size shmobile_boot_vector, .-shmobile_boot_vector \n"
+    ".align	2 \n"
+		"func:\n"
+"1:	.space	4 \n"
+	".globl	shmobile_boot_size \n"
+"shmobile_boot_size: \n"
+	".long	.-shmobile_boot_vector \n");
+#endif
