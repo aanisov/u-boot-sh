@@ -42,7 +42,7 @@ struct sh_i2c {
 #define SH_I2C_ICIC_ICCHB8	(1 << 6)
 #endif
 
-static const struct sh_i2c *i2c_dev[CONFIG_SYS_I2C_SH_NUM_CONTROLLERS] = {
+static const struct sh_i2c *i2c_dev[] = {
 	(struct sh_i2c *)CONFIG_SYS_I2C_SH_BASE0,
 #ifdef CONFIG_SYS_I2C_SH_BASE1
 	(struct sh_i2c *)CONFIG_SYS_I2C_SH_BASE1,
