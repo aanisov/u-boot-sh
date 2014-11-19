@@ -15,6 +15,7 @@
 #include <asm/arch/sys_proto.h>
 #include <asm/gpio.h>
 #include <asm/arch/rmobile.h>
+#include <asm/arch/sh_sdhi.h>
 #include <netdev.h>
 #include <miiphy.h>
 #include <i2c.h>
@@ -52,6 +53,8 @@ void s_init(void)
 #define MSTPSR3		0xE6150048
 #define SMSTPCR3	0xE615013C
 #define IIC1_MSTP323	(1 << 23)
+#define SDHI0_MSTP314	(1 << 14)
+#define SDHI1_MSTP312	(1 << 12)
 
 #define mstp_setbits(type, addr, saddr, set) \
 	out_##type((saddr), in_##type(addr) | (set))
@@ -61,6 +64,9 @@ void s_init(void)
 	mstp_setbits(le32, addr, saddr, set)
 #define mstp_clrbits_le32(addr, saddr, clear)   \
 	mstp_clrbits(le32, addr, saddr, clear)
+
+#define SD1CKCR		0xE6150078
+#define SD1_97500KHZ	0x7
 
 int board_early_init_f(void)
 {
@@ -75,6 +81,15 @@ int board_early_init_f(void)
 
 	/* IIC1 / sh-i2c ch1 */
 	mstp_clrbits_le32(MSTPSR3, SMSTPCR3, IIC1_MSTP323);
+
+	/* SDHI0, 1 */
+	mstp_clrbits_le32(MSTPSR3, SMSTPCR3, SDHI0_MSTP314 | SDHI1_MSTP312);
+
+	/*
+	 * SD0 clock is set to 97.5MHz by default.
+	 * Set SD1 to the 97.5MHz as well.
+	 */
+	writel(SD1_97500KHZ, SD1CKCR);
 
 	return 0;
 }
@@ -145,6 +160,48 @@ int board_eth_init(bd_t *bis)
 #endif
 }
 
+int board_mmc_init(bd_t *bis)
+{
+	int ret = -ENODEV;
+
+#ifdef CONFIG_SH_SDHI
+	gpio_request(GPIO_FN_SD0_DATA0, NULL);
+	gpio_request(GPIO_FN_SD0_DATA1, NULL);
+	gpio_request(GPIO_FN_SD0_DATA2, NULL);
+	gpio_request(GPIO_FN_SD0_DATA3, NULL);
+	gpio_request(GPIO_FN_SD0_CLK, NULL);
+	gpio_request(GPIO_FN_SD0_CMD, NULL);
+	gpio_request(GPIO_FN_SD0_CD, NULL);
+	gpio_request(GPIO_FN_SD1_DATA0, NULL);
+	gpio_request(GPIO_FN_SD1_DATA1, NULL);
+	gpio_request(GPIO_FN_SD1_DATA2, NULL);
+	gpio_request(GPIO_FN_SD1_DATA3, NULL);
+	gpio_request(GPIO_FN_SD1_CLK, NULL);
+	gpio_request(GPIO_FN_SD1_CMD, NULL);
+	gpio_request(GPIO_FN_SD1_CD, NULL);
+
+	/* SDHI 0 */
+	gpio_request(GPIO_GP_2_26, NULL);
+	gpio_request(GPIO_GP_2_29, NULL);
+	gpio_direction_output(GPIO_GP_2_26, 1);
+	gpio_direction_output(GPIO_GP_2_29, 1);
+
+	ret = sh_sdhi_init(CONFIG_SYS_SH_SDHI0_BASE, 0);
+	if (ret)
+		return ret;
+
+	/* SDHI 1 */
+	gpio_request(GPIO_GP_4_26, NULL);
+	gpio_request(GPIO_GP_4_29, NULL);
+	gpio_direction_output(GPIO_GP_4_26, 1);
+	gpio_direction_output(GPIO_GP_4_29, 1);
+
+	ret = sh_sdhi_init(CONFIG_SYS_SH_SDHI1_BASE, 1);
+#endif
+	return ret;
+}
+
+
 int dram_init(void)
 {
 	gd->ram_size = CONFIG_SYS_SDRAM_SIZE;
@@ -165,3 +222,4 @@ void reset_cpu(ulong addr)
 	val |= 0x02;
 	i2c_write(CONFIG_SYS_I2C_POWERIC_ADDR, 0x13, 1, &val, 1);
 }
+
