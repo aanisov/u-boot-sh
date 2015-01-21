@@ -122,6 +122,10 @@ int board_early_init_f(void)
 	return 0;
 }
 
+#ifdef CONFIG_ARMV7_VIRT
+static int shmobile_init_time(void);
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 int board_init(void)
 {
@@ -220,6 +224,11 @@ int board_init(void)
 
 	/* wait 5ms */
 	udelay(5000);
+
+#ifdef CONFIG_ARMV7_VIRT
+	/* init timer */
+	shmobile_init_time();
+#endif
 
 	return 0;
 }
@@ -386,7 +395,61 @@ extern unsigned long shmobile_boot_size;
 #define LAGER_RST_CA7BAR                       0xE6160030
 #define LAGER_LAGER_RAM                        0xE63C0000
 #define LAGER_MAX_CPUS                         4
+#define TIMER_BASE                  0xE6080000
+#define TIMER_CNTCR                 0x0
+#define TIMER_CNTFID0               0x20
+#define MODEMR                      0xE6160060
+#define MD(nr)                      BIT(nr)
 
+static int shmobile_init_time(void)
+{
+    uint32_t freq;
+    int extal_mhz = 0;
+    unsigned int mode = readl(MODEMR);
+
+    /* At Linux boot time the r8a7790 arch timer comes up
+     * with the counter disabled. Moreover, it may also report
+     * a potentially incorrect fixed 13 MHz frequency. To be
+     * correct these registers need to be updated to use the
+     * frequency EXTAL / 2 which can be determined by the MD pins.
+     */
+
+    switch ( mode & (MD(14) | MD(13)) ) {
+    case 0:
+        extal_mhz = 15;
+        break;
+    case MD(13):
+        extal_mhz = 20;
+        break;
+    case MD(14):
+        extal_mhz = 26;
+        break;
+    case MD(13) | MD(14):
+        extal_mhz = 30;
+        break;
+    }
+
+    /* The arch timer frequency equals EXTAL / 2 */
+    freq = extal_mhz * (1000000 / 2);
+
+    /*
+     * Update the timer if it is either not running, or is not at the
+     * right frequency. The timer is only configurable in secure mode
+     * so this avoids an abort if the loader started the timer and
+     * entered the kernel in non-secure mode.
+     */
+
+    if ( (readl(TIMER_BASE + TIMER_CNTCR) & 1) == 0 ||
+            readl(TIMER_BASE + TIMER_CNTFID0) != freq ) {
+        /* Update registers with correct frequency */
+        writel(freq, TIMER_BASE + TIMER_CNTFID0);
+        asm volatile("mcr p15, 0, %0, c14, c0, 0" : : "r" (freq));
+
+       /* make sure arch timer is started by setting bit 0 of CNTCR */
+        writel(1, TIMER_BASE + TIMER_CNTCR);
+    }
+    return 0;
+}
 
 enum { R8A7790_CLST_CA15, R8A7790_CLST_CA7, R8A7790_CLST_NR };
 static struct {
