@@ -195,6 +195,8 @@ static int bootm_start(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]
 	void		*os_hdr;
 	int		ret;
 
+	*((int*)1) = 0;
+
 	memset((void *)&images, 0, sizeof(images));
 	images.verify = getenv_yesno("verify");
 
