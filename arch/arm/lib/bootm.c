@@ -266,12 +266,7 @@ static int create_fdt(bootm_headers_t *images)
 	if (ret)
 		return ret;
 
-#ifdef CONFIG_XEN_BOOT
-	fdt_chosen(*of_flat_tree, 0);
-#else
 	fdt_chosen(*of_flat_tree, 1);
-#endif
-
 #if !(defined(CONFIG_R8A7790) || defined(CONFIG_R8A7791) || \
 	defined(CONFIG_R8A7793) || defined(CONFIG_R8A7794))
 	fixup_memory_node(*of_flat_tree);
