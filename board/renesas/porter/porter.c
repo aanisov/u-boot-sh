@@ -104,6 +104,10 @@ int board_early_init_f(void)
 #define PUPR5_ETH	0x3FFC0000
 #define PUPR5_ETH_MAGIC	(1 << 27)
 
+#ifdef CONFIG_ARMV7_VIRT
+static int shmobile_init_time(void);
+#endif
+
 int board_init(void)
 {
 	u32 val;
@@ -167,6 +171,11 @@ int board_init(void)
 	/* sdhi2 */
 	gpio_request(GPIO_GP_2_26, NULL);
 	gpio_direction_output(GPIO_GP_2_26, 1);	/* 1: 3.3V, 0: 1.8V */
+
+#ifdef CONFIG_ARMV7_VIRT
+	/* init timer */
+	shmobile_init_time();
+#endif
 
 	return 0;
 }
@@ -303,3 +312,199 @@ void arch_preboot_os()
 		       mstptbl[i].r_addr);
 	}
 }
+
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
+extern void shmobile_boot_vector(void);
+extern unsigned long shmobile_boot_size;
+
+#define r8a7790_clst_id(cpu) ((cpu & 4) > 0 ? 1 : 0)
+#define r8a7790_cpu_id(cpu) ((cpu) & 0x3)
+#define LAGER_APMU_BASE                        0xE6150000
+#define LAGER_APMU_CA15WUPCR_OFFSET            0x2010
+#define LAGER_APMU_CA15CPUCMCR_OFFSET          0x2184
+ #define LAGER_RST_BASE                         0xE6160000
+#define LAGER_RST_CA15BAR_OFFSET               0x20
+ #define LAGER_RST_CA15BAR_BAREN                (1 << 4)
+ #define LAGER_RST_CA15RESCNT_OFFSET            0x40
+ #define		BIT(x)	(1 << (x))
+#define LAGER_XEN_INIT_SECONDARY_START         0xE63C0FFC
+#define LAGER_RST_BASE                         0xE6160000
+#define LAGER_RST_CA15BAR                      0xE6160020
+ #define LAGER_LAGER_RAM                        0xE63C0000
+#define LAGER_MAX_CPUS                         2
+#define TIMER_BASE                  0xE6080000
+#define TIMER_CNTCR                 0x0
+#define TIMER_CNTFID0               0x20
+#define MODEMR                      0xE6160060
+#define MD(nr)                      BIT(nr)
+
+static int shmobile_init_time(void)
+{
+    uint32_t freq;
+    int extal_mhz = 0;
+    unsigned int mode = readl(MODEMR);
+
+    /* At Linux boot time the r8a7790 arch timer comes up
+     * with the counter disabled. Moreover, it may also report
+     * a potentially incorrect fixed 13 MHz frequency. To be
+     * correct these registers need to be updated to use the
+     * frequency EXTAL / 2 which can be determined by the MD pins.
+     */
+
+    switch ( mode & (MD(14) | MD(13)) ) {
+    case 0:
+        extal_mhz = 15;
+        break;
+    case MD(13):
+        extal_mhz = 20;
+        break;
+    case MD(14):
+        extal_mhz = 26;
+        break;
+    case MD(13) | MD(14):
+        extal_mhz = 30;
+        break;
+    }
+
+    /* The arch timer frequency equals EXTAL / 2 */
+    freq = extal_mhz * (1000000 / 2);
+
+    /*
+     * Update the timer if it is either not running, or is not at the
+     * right frequency. The timer is only configurable in secure mode
+     * so this avoids an abort if the loader started the timer and
+     * entered the kernel in non-secure mode.
+     */
+
+    if ( (readl(TIMER_BASE + TIMER_CNTCR) & 1) == 0 ||
+            readl(TIMER_BASE + TIMER_CNTFID0) != freq ) {
+        /* Update registers with correct frequency */
+        writel(freq, TIMER_BASE + TIMER_CNTFID0);
+        asm volatile("mcr p15, 0, %0, c14, c0, 0" : : "r" (freq));
+
+       /* make sure arch timer is started by setting bit 0 of CNTCR */
+        writel(1, TIMER_BASE + TIMER_CNTCR);
+    }
+    return 0;
+}
+
+enum { R8A7790_CLST_CA15, R8A7790_CLST_NR };
+static struct {
+	unsigned int wupcr;
+	unsigned int bar;
+	unsigned int rescnt;
+	unsigned int rescnt_magic;
+} r8a7790_clst[R8A7790_CLST_NR] = {
+	[R8A7790_CLST_CA15] = {
+		.wupcr = LAGER_APMU_CA15WUPCR_OFFSET,
+		.bar = LAGER_RST_CA15BAR_OFFSET,
+		.rescnt = LAGER_RST_CA15RESCNT_OFFSET,
+		.rescnt_magic = 0xa5a50000,
+} ,
+};
+
+static void assert_reset(unsigned int cpu)
+{
+	void *rescnt;
+	u32 mask, magic;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	/* disable per-core clocks */
+	mask = BIT(3 - r8a7790_cpu_id(cpu));
+	magic = r8a7790_clst[clst_id].rescnt_magic;
+	rescnt = (void *) (LAGER_RST_BASE + r8a7790_clst[clst_id].rescnt);
+	writel((readl(rescnt) | mask) | magic, rescnt);
+}
+
+static void deassert_reset(unsigned int cpu)
+{
+	void *rescnt;
+	u32 mask, magic;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	/* enable per-core clocks */
+	mask = BIT(3 - r8a7790_cpu_id(cpu));
+    magic = r8a7790_clst[clst_id].rescnt_magic;
+	rescnt = (void *) (LAGER_RST_BASE + r8a7790_clst[clst_id].rescnt);
+	writel((readl(rescnt) & ~mask) | magic, rescnt);
+}
+
+static void power_on(unsigned int cpu)
+{
+	void *cawupcr;
+	unsigned int clst_id = r8a7790_clst_id(cpu);
+
+	cawupcr = (void *) (LAGER_APMU_BASE + r8a7790_clst[clst_id].wupcr);
+	writel(BIT(r8a7790_cpu_id(cpu)), cawupcr);
+
+	/* wait for APMU to finish */
+	while (readl(cawupcr) != 0);
+}
+
+void smp_kick_all_cpus(void)
+{
+	int i;
+	for (i = 1; i < LAGER_MAX_CPUS; i++)
+	{
+		assert_reset(i);
+		power_on(i);
+		deassert_reset(i);
+	}
+}
+
+void smp_set_core_boot_addr(unsigned long addr, int corenr)
+{
+
+	void __iomem *p;
+	unsigned long *f;
+	unsigned long bar;
+
+	p = (void __iomem*) LAGER_LAGER_RAM;
+	memcpy(p, shmobile_boot_vector, shmobile_boot_size);
+	f = (void __iomem *)((long unsigned)p + shmobile_boot_size - 4);
+	*((unsigned long *) f) = addr;
+	dmb(); /* make sure we have finished io operations */
+
+	bar = (LAGER_LAGER_RAM >> 8) & 0xfffffc00;
+
+	writel(bar, LAGER_RST_CA15BAR);
+	writel(bar | 0x10, LAGER_RST_CA15BAR);
+ 
+	f = (unsigned long *)(LAGER_XEN_INIT_SECONDARY_START);
+	*f = 0;
+
+	/* make sure this write is really executed */
+	__asm__ volatile ("dsb\n");
+}
+
+
+asm(".arm \n"
+	".align 2 \n"
+	".global smp_waitloop \n"
+	"smp_waitloop: \n"
+	"1: 	wfe \n"
+	"ldr 	r0, =0xE63C0FFC \n"
+	"ldr	r0, [r0] \n"
+	"teq	r0, #0x0 \n"
+	"beq 	1b \n"
+
+	"b		_do_nonsec_entry \n"
+	".type smp_waitloop, %function \n"
+	".size smp_waitloop, .-smp_waitloop \n");
+
+asm(
+	".arm \n"
+	".globl shmobile_boot_vector \n"
+	".align 2 \n"
+	"shmobile_boot_vector: \n"
+	"ldr    pc, 1f \n"
+	".type shmobile_boot_vector, %function \n"
+	".size shmobile_boot_vector, .-shmobile_boot_vector \n"
+    ".align	2 \n"
+		"func:\n"
+"1:	.space	4 \n"
+	".globl	shmobile_boot_size \n"
+"shmobile_boot_size: \n"
+	".long	.-shmobile_boot_vector \n");
+#endif
+
