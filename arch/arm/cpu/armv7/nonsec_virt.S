@@ -170,20 +170,6 @@ ENTRY(_nonsec_init)
 	orr	r0, r0, r1
 	mcr	p15, 0, r0, c1, c1, 2		@ NSACR = all copros to non-sec
 
-/* The CNTFRQ register of the generic timer needs to be
- * programmed in secure state. Some primary bootloaders / firmware
- * omit this, so if the frequency is provided in the configuration,
- * we do this here instead.
- * But first check if we have the generic timer.
- */
-#ifdef CONFIG_SYS_CLK_FREQ
-	mrc	p15, 0, r0, c0, c1, 1		@ read ID_PFR1
-	and	r0, r0, #CPUID_ARM_GENTIMER_MASK	@ mask arch timer bits
-	cmp	r0, #(1 << CPUID_ARM_GENTIMER_SHIFT)
-	ldreq	r1, =CONFIG_SYS_CLK_FREQ
-	mcreq	p15, 0, r1, c14, c0, 0		@ write CNTFRQ
-#endif
-
 	adr	r1, _monitor_vectors
 	mcr	p15, 0, r1, c12, c0, 1		@ set MVBAR to secure vectors
 	isb
